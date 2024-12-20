@@ -62,9 +62,9 @@ class Car:
 
 class Lane:
     def __init__(self, game_width, game_height):
-        self.width = 300  # Width of the lane
+        self.width = 250  # Width of the lane
         self.curve_amplitude = 50  # Amplitude of the curve
-        self.curve_frequency = 0.008  # Frequency of the curve
+        self.curve_frequency = 0.005  # Frequency of the curve
         self.game_width = game_width
         self.game_height = game_height
         self.current_amplitude = self.curve_amplitude
@@ -135,6 +135,7 @@ class Simulator():
         self.lane = lane
         self.sensor = sensor
 
+        self.keep_velocity = True
         self.show_sensor_dots = False       
 
         self.left_distances = []
@@ -170,6 +171,8 @@ class Simulator():
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_k:
+                    self.keep_velocity = not self.keep_velocity
                 if event.key == pygame.K_s:
                     self.show_sensor_dots = not self.show_sensor_dots
     
@@ -192,12 +195,15 @@ class Simulator():
                 self.car.acceleration = -math.copysign(self.car.brake_deceleration, self.car.velocity)
             else:
                 self.car.acceleration = -self.car.velocity / dt 
-        # else:
-        #     if abs(self.car.velocity) > dt * self.car.free_deceleration:
-        #         self.car.acceleration = -math.copysign(self.car.free_deceleration, self.car.velocity)
-        #     else:
-        #         if dt != 0:
-        #             self.car.acceleration = -self.car.velocity / dt
+        else:
+            if self.keep_velocity:
+                self.car.acceleration = 0
+            else:
+                if abs(self.car.velocity) > dt * self.car.free_deceleration:
+                    self.car.acceleration = -math.copysign(self.car.free_deceleration, self.car.velocity)
+                else:
+                    if dt != 0:
+                        self.car.acceleration = -self.car.velocity / dt
         
         # Limit acceleration to max values
         self.car.acceleration = max(-self.car.max_acceleration, min(self.car.acceleration, self.car.max_acceleration))
