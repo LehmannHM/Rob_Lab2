@@ -19,7 +19,7 @@ class LaneSensor(threading.Thread):
     def run(self):
         while self.running:
             self.distances = self.get_sensor_values()
-            time.sleep(0.1)
+            time.sleep(0.02)
 
     def get_distance_to_lane(self):
         _, road_center_x, right_x = self.lane.get_lane_markings(self.car.position.y + self.car_screen_pos - self.car.length / 2)

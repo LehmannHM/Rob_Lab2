@@ -4,11 +4,12 @@ import pygame
 import threading
 import time
 
+from SteeringController import SteeringController
 from pygame.math import Vector2
 
         
 class Car:
-    def __init__(self, screen_pos, max_steering=50, max_acceleration=50.0):
+    def __init__(self, screen_pos, max_steering=30, max_acceleration=50.0):
         self.position = Vector2(0, 0)  # Initial position
         self.screen_pos = screen_pos
 
@@ -22,6 +23,8 @@ class Car:
         
         self.acceleration = 0.0  # Acceleration input
         self.steering_angle = 0.0  # Current steering angle
+
+        self.lane_assist_on = True
 
         # Load image
         current_dir = os.path.dirname(os.path.abspath(__file__))        
@@ -120,7 +123,7 @@ class Lane:
                 screen.blit(road_offset, (left_x - 80, y))
 
 
-class Simulator():
+class Simulator:
     def __init__(self, width, height, car, lane, sensor):
         pygame.init()
         pygame.display.set_caption("Car simulator")
@@ -136,7 +139,9 @@ class Simulator():
         self.sensor = sensor
 
         self.keep_velocity = True
-        self.show_sensor_dots = False       
+        self.show_sensor_dots = False
+
+        self.steering_controller = SteeringController(self.car)
 
         self.left_distances = []
         self.right_distances = []
@@ -155,16 +160,11 @@ class Simulator():
 
             # Update logic for the car's movement and position.
             self.car.update(dt)
-            
+            self.steering_controller.update(dt)
+
             self.draw()
 
             self.clock.tick(self.ticks)
-            # sensor_distances = self.sensor.get_sensor_values()
-            # self.left_distances.append(sensor_distances[0][0])
-            # self.right_distances.append(sensor_distances[0][1])
-            # self.times.append(time.time() - self.start_time)
-
-        # self.plot_lane_detection()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -175,6 +175,8 @@ class Simulator():
                     self.keep_velocity = not self.keep_velocity
                 if event.key == pygame.K_s:
                     self.show_sensor_dots = not self.show_sensor_dots
+                if event.key == pygame.K_a:
+                    self.car.lane_assist_on = not self.car.lane_assist_on
     
     def handle_user_input(self, dt):
         pressed = pygame.key.get_pressed()
@@ -205,20 +207,18 @@ class Simulator():
                     if dt != 0:
                         self.car.acceleration = -self.car.velocity / dt
         
-        # Limit acceleration to max values
-        self.car.acceleration = max(-self.car.max_acceleration, min(self.car.acceleration, self.car.max_acceleration))
-        
         # Steering
         if pressed[pygame.K_RIGHT]:
-            self.car.steering_angle += dt * self.car.max_steering * 2
+            target_angle = self.car.steering_angle + dt * self.car.max_steering * 2
+            self.steering_controller.set_target_angle(target_angle)            
+            self.steering_controller.reset_controller()
         elif pressed[pygame.K_LEFT]:
-            self.car.steering_angle -= dt * self.car.max_steering * 2
-        else:
-            self.car.steering_angle *= .7
+            target_angle = self.car.steering_angle - dt * self.car.max_steering * 2
+            self.steering_controller.set_target_angle(target_angle)
+            self.steering_controller.reset_controller()
+        elif not self.steering_controller.controller_active:
+            self.steering_controller.set_target_angle(0)  # Gradually return to center
 
-        # Limit steering to max values
-        self.car.steering_angle = max(-self.car.max_steering, min(self.car.steering_angle, self.car.max_steering))
-            
     def draw(self):
         self.screen.fill((255,255,255))   # Clear screen with white background
 

@@ -12,7 +12,7 @@ if __name__ == '__main__':
     lane = Lane(WINDOW_WIDTH, WINDOW_HEIGHT)
     sensor = LaneSensor(car, lane, do_add_noise=True)
     simulator = Simulator(WINDOW_WIDTH, WINDOW_HEIGHT, car, lane, sensor)
-    pid_controller = PIDController(car, sensor)
+    pid_controller = PIDController(car, sensor, simulator.steering_controller)
 
     sensor.start()
     pid_controller.start()
