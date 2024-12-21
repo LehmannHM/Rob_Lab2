@@ -1,6 +1,7 @@
 import threading
 import time
 import random
+import numpy as np
 
 from random import random, gauss
 
@@ -12,6 +13,9 @@ class LaneSensor(threading.Thread):
         self.car_screen_pos = self.car.screen_pos
         self.do_add_noise = do_add_noise
         self.do_add_disturbances = do_add_disturbances
+
+        self.num_measurement_points = 30
+        self.distance_between_points = 5
 
         self.running = True
         self.distances = []
@@ -27,10 +31,10 @@ class LaneSensor(threading.Thread):
         right_distance = right_x - self.car.position.x
         return left_distance, right_distance
 
-    def get_distances_to_lane(self, num_measurement_points=50, distance_between_points=10):
+    def get_distances_to_lane(self):
         distances = []
-        for i in range(num_measurement_points):
-            y = self.car.position.y + self.car_screen_pos - self.car.length / 2 - i * distance_between_points
+        for i in range(self.num_measurement_points):
+            y = self.car.position.y + self.car_screen_pos - self.car.length / 2 - i * self.distance_between_points
             _, road_center_x, right_x = self.lane.get_lane_markings(y)
             left_distance = self.car.position.x - road_center_x
             right_distance = right_x - self.car.position.x
@@ -50,6 +54,22 @@ class LaneSensor(threading.Thread):
         # TODO: Remove some of the distances
 
         return distances
+
+    def fit_lane_curve(self):
+        y_values = np.arange(len(self.distances)) * self.distance_between_points
+        left_distances = [d[0] for d in self.distances]
+        right_distances = [d[1] for d in self.distances]
+
+        # Fit a second-degree polynomial (quadratic) to the lane markings
+        left_fit = np.polyfit(y_values, left_distances, 2)
+        right_fit = np.polyfit(y_values, right_distances, 2)
+
+        return left_fit, right_fit
+
+    def get_curve_points(self, fit, y_values):
+        x_values = np.polyval(fit, y_values)
+        points = [(x, y) for x, y in zip(x_values, y_values)]
+        return points
 
     def stop(self):
         self.running = False

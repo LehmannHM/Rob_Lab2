@@ -4,17 +4,19 @@ import pygame
 import threading
 import time
 
+import numpy as np
+
 from SteeringController import SteeringController
 from pygame.math import Vector2
 
         
 class Car:
-    def __init__(self, screen_pos, max_steering=30, max_acceleration=50.0):
+    def __init__(self, screen_pos, max_steering=50, max_acceleration=50.0):
         self.position = Vector2(0, 0)  # Initial position
         self.screen_pos = screen_pos
 
         self.velocity = 100.0  # Initial forward velocity
-        self.max_velocity = 200.0  # Maximum velocity
+        self.max_velocity = 170.0  # Maximum velocity
         self.angle = 0.0  # Heading angle in degrees
         self.max_steering = max_steering  # Maximum steering angle in degrees
         self.max_acceleration = max_acceleration
@@ -67,7 +69,7 @@ class Lane:
     def __init__(self, game_width, game_height):
         self.width = 250  # Width of the lane
         self.curve_amplitude = 50  # Amplitude of the curve
-        self.curve_frequency = 0.005  # Frequency of the curve
+        self.curve_frequency = 0.001  # Frequency of the curve
         self.game_width = game_width
         self.game_height = game_height
         self.current_amplitude = self.curve_amplitude
@@ -225,17 +227,41 @@ class Simulator:
         # Lanes
         self.lane.draw(self.screen, self.car.position.y)
 
+        rear_wheel_offset = self.car.length / 2
+
         # Car
         rotated_car_image = pygame.transform.rotate(self.car.image, -self.car.angle)
         rect_car_image = rotated_car_image.get_rect(center=(self.car.position.x , self.car_screen_pos))
+
+        # rect_car_image.center = (self.car.position.x, self.car_screen_pos + rear_wheel_offset)
+        # offset_x = rear_wheel_offset * math.sin(math.radians(self.car.angle))
+        # offset_y = rear_wheel_offset * math.cos(math.radians(self.car.angle))
+        # rect_car_image.center = (self.car.position.x - offset_x, self.car_screen_pos + offset_y)
+
         self.screen.blit(rotated_car_image , rect_car_image.topleft) 
 
         self.draw_text_overlay()
 
+        # self.draw_lane_fit_lines()
         if self.show_sensor_dots:
             self.draw_sensor_dots()
 
         pygame.display.flip()              # Refresh display
+
+    def draw_lane_fit_lines(self):
+        left_fit, right_fit = self.sensor.fit_lane_curve()
+        y_values = np.arange(len(self.sensor.distances)) * self.sensor.distance_between_points
+
+        left_points = self.sensor.get_curve_points(left_fit, y_values)
+        right_points = self.sensor.get_curve_points(right_fit, y_values)
+
+        # Draw left lane fit line
+        for i in range(len(left_points) - 1):
+            pygame.draw.line(self.screen, (0, 255, 0), left_points[i], left_points[i + 1], 2)
+
+        # Draw right lane fit line
+        for i in range(len(right_points) - 1):
+            pygame.draw.line(self.screen, (0, 255, 0), right_points[i], right_points[i + 1], 2)
 
     def draw_text_overlay(self):
         # Display velocity and steering angle
@@ -244,6 +270,15 @@ class Simulator:
 
         steering_angle = pygame.font.SysFont('Arial', 24).render(f'Steering angle: {self.car.steering_angle:.0f}', True, (0, 0, 0))
         self.screen.blit(steering_angle, (self.width / 4 * 3, self.height / 4 * 3 + 20))
+
+        # Driving assistance status
+        lane_assist_state = "On" if self.car.lane_assist_on else "Off"
+        lane_assist = pygame.font.SysFont('Arial', 24).render(f'Lane Assist: {lane_assist_state}', True, (0, 0, 0))
+        self.screen.blit(lane_assist, (self.width / 4 * 3, self.height / 5))
+        
+        keep_velocity_state = "On" if self.keep_velocity else "Off"
+        keep_velocity = pygame.font.SysFont('Arial', 24).render(f'Keep Speed: {keep_velocity_state}', True, (0, 0, 0))
+        self.screen.blit(keep_velocity, (self.width / 4 * 3, self.height / 5 + 20))
 
         # Display distance to lane markings
         left_distance = self.sensor.distances[0][0]
@@ -256,8 +291,8 @@ class Simulator:
     def draw_sensor_dots(self):
         car_top = self.car_screen_pos - self.car.length / 2
         for i, (left_distance, right_distance) in enumerate(self.sensor.distances):
-            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x - left_distance, car_top - i * 10), 5, 5)
-            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x + right_distance, car_top - i * 10), 5, 5)
+            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x - left_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
+            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x + right_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
 
     def plot_lane_detection(self):
         plt.figure()
