@@ -1,8 +1,8 @@
 class SteeringController:
-    def __init__(self, car, max_steering_speed=150.0):
+    def __init__(self, car, max_steering_speed=120.0):
         self.car = car
         self.target_angle = 0.0
-        self.max_steering_speed = max_steering_speed  # Degrees per second
+        self.max_steering_speed = max_steering_speed
         self.controller_active = False  # Flag to indicate if the PID controller is active
 
     def update(self, dt):
@@ -16,7 +16,7 @@ class SteeringController:
 
         # Gradually return to center if no controller is active
         if not self.controller_active and self.target_angle == 0:
-            self.car.steering_angle *= 0.92  # Adjust this factor for a realistic return speed
+            self.car.steering_angle *= 0.92
 
     def set_target_angle(self, angle, from_controller=False):
         self.target_angle = max(-self.car.max_steering, min(angle, self.car.max_steering))

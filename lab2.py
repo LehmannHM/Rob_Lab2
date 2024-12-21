@@ -10,7 +10,7 @@ CAR_SCREEN_POS = WINDOW_HEIGHT * (3 / 4)
 if __name__ == '__main__':
     car = Car(CAR_SCREEN_POS)
     lane = Lane(WINDOW_WIDTH, WINDOW_HEIGHT)
-    sensor = LaneSensor(car, lane, do_add_noise=True)
+    sensor = LaneSensor(car, lane, do_add_noise=True, do_add_disturbances=True)
     simulator = Simulator(WINDOW_WIDTH, WINDOW_HEIGHT, car, lane, sensor)
     pid_controller = PIDController(car, sensor, simulator.steering_controller)
 

@@ -4,6 +4,7 @@ import pygame
 import threading
 import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from SteeringController import SteeringController
@@ -69,7 +70,7 @@ class Lane:
     def __init__(self, game_width, game_height):
         self.width = 250  # Width of the lane
         self.curve_amplitude = 50  # Amplitude of the curve
-        self.curve_frequency = 0.001  # Frequency of the curve
+        self.curve_frequency = 0.005  # Frequency of the curve
         self.game_width = game_width
         self.game_height = game_height
         self.current_amplitude = self.curve_amplitude
@@ -166,7 +167,11 @@ class Simulator:
 
             self.draw()
 
+            self.save_lane_detection()
             self.clock.tick(self.ticks)
+
+        self.plot_lane_detection()
+
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -233,20 +238,25 @@ class Simulator:
         rotated_car_image = pygame.transform.rotate(self.car.image, -self.car.angle)
         rect_car_image = rotated_car_image.get_rect(center=(self.car.position.x , self.car_screen_pos))
 
-        # rect_car_image.center = (self.car.position.x, self.car_screen_pos + rear_wheel_offset)
-        # offset_x = rear_wheel_offset * math.sin(math.radians(self.car.angle))
-        # offset_y = rear_wheel_offset * math.cos(math.radians(self.car.angle))
-        # rect_car_image.center = (self.car.position.x - offset_x, self.car_screen_pos + offset_y)
-
         self.screen.blit(rotated_car_image , rect_car_image.topleft) 
-
+        # self.blitRotate(self.screen, self.car.image, (self.car.position.x - self.car.image.get_width() / 2, self.car_screen_pos + self.car.image.get_height() / 2), (0, self.car.image.get_height() / 5 * 4), -self.car.angle)
+        
+        pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x, self.car_screen_pos), 5, 5)
         self.draw_text_overlay()
 
-        # self.draw_lane_fit_lines()
         if self.show_sensor_dots:
             self.draw_sensor_dots()
 
         pygame.display.flip()              # Refresh display
+
+    def blitRotate(self, surf, image, origin, pivot, angle):
+        image_rect = image.get_rect(topleft = (origin[0] - pivot[0], origin[1]-pivot[1]))
+        offset_center_to_pivot = pygame.math.Vector2(origin) - image_rect.center
+        rotated_offset = offset_center_to_pivot.rotate(-angle)
+        rotated_image_center = (origin[0] - rotated_offset.x, origin[1] - rotated_offset.y)
+        rotated_image = pygame.transform.rotate(image, angle)
+        rotated_image_rect = rotated_image.get_rect(center = rotated_image_center)
+        surf.blit(rotated_image, rotated_image_rect)
 
     def draw_lane_fit_lines(self):
         left_fit, right_fit = self.sensor.fit_lane_curve()
@@ -264,6 +274,23 @@ class Simulator:
             pygame.draw.line(self.screen, (0, 255, 0), right_points[i], right_points[i + 1], 2)
 
     def draw_text_overlay(self):
+        # Instructions
+        instructions = [
+            "Instructions:",
+            "A - Toggle Lane Assist",
+            "K - Toggle Keep Velocity",
+            "S - Toggle Sensor Dots",
+            "UP - Accelerate",
+            "DOWN - Brake",
+            "LEFT - Steer Left",
+            "RIGHT - Steer Right",
+            "SPACE - Emergency Brake"
+        ]
+
+        for i, instruction in enumerate(instructions):
+            instruction_text = pygame.font.SysFont('Arial', 20).render(instruction, True, (0, 0, 0))
+            self.screen.blit(instruction_text, (10, 10 + i * 22))
+
         # Display velocity and steering angle
         velocity = pygame.font.SysFont('Arial', 24).render(f'Velocity: {self.car.velocity:.0f}', True, (0, 0, 0))
         self.screen.blit(velocity, (self.width / 4 * 3, self.height / 4 * 3))
@@ -281,18 +308,29 @@ class Simulator:
         self.screen.blit(keep_velocity, (self.width / 4 * 3, self.height / 5 + 20))
 
         # Display distance to lane markings
-        left_distance = self.sensor.distances[0][0]
-        right_distance = self.sensor.distances[0][1]
+        left_distance = self.sensor.distances[0][0] if self.sensor.left_detected else 0
+        right_distance = self.sensor.distances[0][1] if self.sensor.right_detected else 0
         left_distance_text = pygame.font.SysFont('Arial', 24).render(f'Left Distance: {left_distance:.0f}', True, (0, 0, 0))
         self.screen.blit(left_distance_text, (self.width / 9, self.height / 4 * 3))
         right_distance_text = pygame.font.SysFont('Arial', 24).render(f'Right Distance: {right_distance:.0f}', True, (0, 0, 0))
         self.screen.blit(right_distance_text, (self.width / 9, self.height / 4 * 3 + 20))
 
+        if self.car.lane_assist_on and not self.steering_controller.controller_active:
+            warning_text = pygame.font.SysFont('Arial', 35, True).render("WARNING: Lane Assist Inactive! Take Control!", True, (255, 150, 33))
+            self.screen.blit(warning_text, (self.width / 2 - warning_text.get_width() / 2, self.height / 2 - warning_text.get_height() / 2))
+
     def draw_sensor_dots(self):
         car_top = self.car_screen_pos - self.car.length / 2
         for i, (left_distance, right_distance) in enumerate(self.sensor.distances):
-            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x - left_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
-            pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x + right_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
+            if self.sensor.left_detected:
+                pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x - left_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
+            if self.sensor.right_detected:
+                pygame.draw.circle(self.screen, (255, 0, 0), (self.car.position.x + right_distance, car_top - i * self.sensor.distance_between_points), 5, 5)
+
+    def save_lane_detection(self):
+        self.left_distances.append(self.sensor.distances[0][0])
+        self.right_distances.append(self.sensor.distances[0][1])
+        self.times.append(time.time() - self.start_time)
 
     def plot_lane_detection(self):
         plt.figure()

@@ -13,17 +13,25 @@ class PIDController(threading.Thread):
         self.min_error = min_error
         self.max_steering_angle = max_steering_angle
         self.running = True
+        self.inactive = False
         self.error_sum = 0
         self.last_error = 0
         self.steering_controller = steering_controller
+        self.last_lane_width = 0
 
     def run(self):
         while self.running:
             if self.car.lane_assist_on and self.sensor.distances:
-                left_distance, right_distance = self.sensor.distances[2]
-                error_from_polyfit = self.calculate_steering_angle()
-                error = (left_distance - right_distance) / 2
-                # error = error_from_polyfit
+
+                error = self.calculate_error()
+
+                if error is None:
+                    self.inactive = True
+                    self.steering_controller.reset_controller()
+                    time.sleep(0.02)
+                    continue
+                else:
+                    self.inactive = False
 
                 if abs(error) > self.min_error:
                     self.error_sum += error
@@ -41,6 +49,21 @@ class PIDController(threading.Thread):
             else:
                 self.reset_controller()
             time.sleep(0.02)
+
+    def calculate_error(self):
+        if self.sensor.right_detected and self.sensor.left_detected:
+            left_distance, right_distance = self.sensor.distances[0]
+            self.last_lane_width = left_distance + right_distance
+        elif self.sensor.right_detected:
+            _, right_distance = self.sensor.distances[0]
+            left_distance = self.last_lane_width - right_distance
+        elif self.sensor.left_detected:
+            left_distance, _ = self.sensor.distances[0]
+            right_distance = self.last_lane_width - left_distance
+        else:
+            return None
+
+        return (left_distance - right_distance) / 2
 
     def calculate_steering_angle(self):
         # Calculate the center of the lane at the car's position
