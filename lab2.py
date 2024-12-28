@@ -1,7 +1,7 @@
 import time
 from Simulation import Car, Lane, Simulator
 from LaneSensor import LaneSensor
-from PIDController import PIDController
+from LTASystem import LTASystem
 
 WINDOW_WIDTH = 1500
 WINDOW_HEIGHT = 1000
@@ -12,22 +12,22 @@ if __name__ == '__main__':
     lane = Lane(WINDOW_WIDTH, WINDOW_HEIGHT)
     sensor = LaneSensor(car, lane, do_add_noise=True, do_add_disturbances=True)
     simulator = Simulator(WINDOW_WIDTH, WINDOW_HEIGHT, car, lane, sensor)
-    pid_controller = PIDController(car, sensor, simulator.steering_controller)
+    lta_system = LTASystem(car, sensor, simulator.steering_controller)
 
     sensor.start()
-    pid_controller.start()
+    lta_system.start()
 
     try:
         simulator.run()
     except KeyboardInterrupt:
         sensor.stop()
-        pid_controller.stop()
+        lta_system.stop()
 
         sensor.join()
-        pid_controller.join()
+        lta_system.join()
 
     sensor.stop()
-    pid_controller.stop()
+    lta_system.stop()
 
     sensor.join()
-    pid_controller.join()
+    lta_system.join()

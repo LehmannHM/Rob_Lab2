@@ -55,8 +55,8 @@ class Car:
             beta = 0
 
         # Update position based on kinematic bicycle model equations
-        dx = self.velocity * dt * math.cos(math.radians(self.angle + math.degrees(beta)))
-        dy = self.velocity * dt * math.sin(math.radians(self.angle + math.degrees(beta)))
+        dx = self.velocity * dt * math.cos(math.radians(self.angle) + beta)
+        dy = self.velocity * dt * math.sin(math.radians(self.angle) + beta)
 
         # Update position; keep y constant since we are simulating a road
         self.position.y += dx
@@ -68,15 +68,17 @@ class Car:
 
 class Lane:
     def __init__(self, game_width, game_height):
-        self.width = 250  # Width of the lane
-        self.curve_amplitude = 50  # Amplitude of the curve
-        self.curve_frequency = 0.005  # Frequency of the curve
+        self.LANE_WIDTH = 250
+        self.CURVE_AMPLITUDE = 50
+        self.CURVE_FREQUENCY = 0.005
+        self.SEGMENT_SIZE = 4
+
         self.game_width = game_width
         self.game_height = game_height
-        self.current_amplitude = self.curve_amplitude
-        self.current_frequency = self.curve_frequency
-        self.target_amplitude = self.curve_amplitude
-        self.target_frequency = self.curve_frequency
+        self.current_amplitude = self.CURVE_AMPLITUDE
+        self.current_frequency = self.CURVE_FREQUENCY
+        self.target_amplitude = self.CURVE_AMPLITUDE
+        self.target_frequency = self.CURVE_FREQUENCY
         self.transition_speed = 0.01 
 
     def calculate_road_x(self, y):
@@ -84,8 +86,8 @@ class Lane:
 
     def get_lane_markings(self, y):
         road_center_x = self.calculate_road_x(y)
-        left_x = road_center_x - self.width // 2
-        right_x = road_center_x + self.width // 2
+        left_x = road_center_x - self.LANE_WIDTH // 2
+        right_x = road_center_x + self.LANE_WIDTH // 2
         return left_x, road_center_x, right_x
 
     def update_curve_parameters(self, scroll_offset):
@@ -99,10 +101,11 @@ class Lane:
 
     def draw(self, screen, scroll_offset):
         # self.update_curve_parameters(scroll_offset)
-        for y in range(0, self.game_height + int(scroll_offset), 5):  # Draw road in segments with scroll offset
+        printed = 0
+        for y in range(0, self.game_height + int(scroll_offset), self.SEGMENT_SIZE):  # Draw road in segments with scroll offset
             road_center_x = self.calculate_road_x(y + scroll_offset)
-            left_x = road_center_x - self.width // 2
-            right_x = road_center_x + self.width // 2
+            left_x = road_center_x - self.LANE_WIDTH // 2
+            right_x = road_center_x + self.LANE_WIDTH // 2
 
             # Draw the grey road area
             pygame.draw.polygon(screen, (200, 200, 200), [
@@ -121,8 +124,7 @@ class Lane:
                 pygame.draw.line(screen, (255, 255, 0), (road_center_x, y), (road_center_x, y +  20), 5)
             
             if (y % (20 * 5) == 0):
-                # TODO: This value is not correct and should be moving with the road bit
-                road_offset = pygame.font.SysFont('Arial', 24).render(f'{y + scroll_offset:.0f}', True, (0, 0, 0))
+                road_offset = pygame.font.SysFont('Arial', 24).render(f'{scroll_offset - y + self.game_height:.0f}', True, (0, 0, 0))
                 screen.blit(road_offset, (left_x - 80, y))
 
 
@@ -235,7 +237,7 @@ class Simulator:
         rear_wheel_offset = self.car.length / 2
 
         # Car
-        rotated_car_image = pygame.transform.rotate(self.car.image, -self.car.angle)
+        rotated_car_image = pygame.transform.rotate(self.car.image, -self.car.angle/3)
         rect_car_image = rotated_car_image.get_rect(center=(self.car.position.x , self.car_screen_pos))
 
         self.screen.blit(rotated_car_image , rect_car_image.topleft) 
